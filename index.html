@@ -20,8 +20,8 @@ button.secondary{background:#26364d;color:var(--text);border:1px solid #3b4d66}b
 </style></head>
 <body><main>
 <header><h1>Quint Scale</h1><div id="status" class="status">Disconnected</div></header>
-<section class="panel"><div class="label">Live weight</div><div class="value"><span id="weight">--.-</span> <span class="unit">g</span></div>
-<div class="row"><div><div class="label">Maximum weight</div><div class="max"><span id="maximum">--.-</span> g</div></div><div id="sampleAge" class="status">No data</div></div></section>
+<section class="panel"><div class="label">Live weight</div><div class="value"><span id="weight">--.-</span> <span class="unit">kg</span></div>
+<div class="row"><div><div class="label">Maximum weight</div><div class="max"><span id="maximum">--.-</span> kg</div></div><div id="sampleAge" class="status">No data</div></div></section>
 <section class="panel"><div class="row" style="border:0;padding:0;margin:0"><h2>Live graph</h2><span class="status">Last 60 seconds</span></div><canvas id="chart"></canvas></section>
 <section class="panel"><button id="connect" class="connect">Connect to Quint Scale</button><div class="buttons"><button id="tare" class="secondary" disabled>TARE</button><button id="resetMax" class="secondary" disabled>RESET MAX</button></div><div id="error" class="error"></div><p class="hint">Open this page in Bluefy on your iPhone. Keep Bluetooth enabled and stay near the scale.</p></section>
 </main>
@@ -34,8 +34,8 @@ let device=null,server=null,rx=null,tx=null,maxChar=null,points=[],lastAt=0;
 function status(s,on){$("status").textContent=s;$("status").classList.toggle("connected",!!on);$("tare").disabled=!on;$("resetMax").disabled=!on;$("connect").textContent=on?"Disconnect":"Connect to Quint Scale"}
 function err(s){$("error").textContent=s||""}
 function decode(view){if(view.byteLength<4)throw Error("Invalid weight packet");return view.getFloat32(0,true)}
-function weight(e){try{let v=decode(e.target.value);if(!Number.isFinite(v))return;lastAt=Date.now();$("weight").textContent=v.toFixed(1);points.push({t:lastAt,v});if(points.length>600)points.shift();$("sampleAge").textContent="Live";draw()}catch(x){err(x.message)}}
-function maximum(e){try{$("maximum").textContent=decode(e.target.value).toFixed(1)}catch(x){err(x.message)}}
+function weight(e){try{let v=decode(e.target.value)/1000;if(!Number.isFinite(v))return;lastAt=Date.now();$("weight").textContent=v.toFixed(1);points.push({t:lastAt,v});if(points.length>600)points.shift();$("sampleAge").textContent="Live";draw()}catch(x){err(x.message)}}
+function maximum(e){try{$("maximum").textContent=(decode(e.target.value)/1000).toFixed(1)}catch(x){err(x.message)}}
 async function connect(){
  if(!navigator.bluetooth?.requestDevice)throw Error("Web Bluetooth is unavailable. Open this page in Bluefy, not Safari.");
  device=await navigator.bluetooth.requestDevice({filters:[{services:[SERVICE]}],optionalServices:[SERVICE]});
@@ -56,9 +56,9 @@ function draw(){
  const dpr=devicePixelRatio||1,r=canvas.getBoundingClientRect(),w=Math.max(1,r.width),h=Math.max(1,r.height);
  if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr)}
  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);let now=Date.now();points=points.filter(p=>now-p.t<=60000);
- let vals=points.map(p=>p.v),lo=vals.length?Math.min(0,...vals):0,hi=vals.length?Math.max(100,...vals):100;if(hi-lo<10)hi=lo+10;let pad=(hi-lo)*.08;lo-=pad;hi+=pad;
+  let vals=points.map(p=>p.v),lo=vals.length?Math.min(0,...vals):0,hi=vals.length?Math.max(1,...vals):1;if(hi-lo<.1)hi=lo+.1;let pad=(hi-lo)*.08;lo-=pad;hi+=pad;
  let L=42,R=8,T=12,B=24,pw=w-L-R,ph=h-T-B,y=v=>T+(hi-v)/(hi-lo)*ph,x=t=>L+(1-(now-t)/60000)*pw;
- ctx.font="11px system-ui";ctx.fillStyle="#91a0b8";ctx.strokeStyle="#29394f";for(let i=0;i<=4;i++){let v=lo+(hi-lo)*i/4,yy=y(v);ctx.beginPath();ctx.moveTo(L,yy);ctx.lineTo(w-R,yy);ctx.stroke();ctx.fillText(v.toFixed(0),3,yy+4)}
+  ctx.font="11px system-ui";ctx.fillStyle="#91a0b8";ctx.strokeStyle="#29394f";for(let i=0;i<=4;i++){let v=lo+(hi-lo)*i/4,yy=y(v);ctx.beginPath();ctx.moveTo(L,yy);ctx.lineTo(w-R,yy);ctx.stroke();ctx.fillText(v.toFixed(1),3,yy+4)}
  ctx.fillText("-60s",L,h-5);ctx.fillText("now",w-32,h-5);
  if(points.length>1){ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(x(p.t),y(p.v)):ctx.moveTo(x(p.t),y(p.v)));ctx.strokeStyle="#64d7b0";ctx.lineWidth=2.5;ctx.lineJoin="round";ctx.stroke()}
 }
